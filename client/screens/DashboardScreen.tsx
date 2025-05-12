@@ -5,52 +5,116 @@ import {
   Text,
   TouchableOpacity,
   ActivityIndicator,
+  Image,
+  Alert,
+  Platform,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import { RootStackParamList } from '../App';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as api from '../services/api';
+import { attemptBackgroundSync } from '../services/syncService';
 
 type DashboardScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Dashboard'>;
 
+type UserProfile = {
+  id: string;
+  displayName: string;
+  email: string | null;
+  photoURL: string | null;
+  provider?: string;
+  lastLogin?: string;
+};
+
 export default function DashboardScreen() {
   const navigation = useNavigation<DashboardScreenNavigationProp>();
-  const [username, setUsername] = useState<string>('');
-  const [loading, setLoading] = useState(false);
+  const [username, setUsername] = useState<string>('User');
+  const [email, setEmail] = useState<string>('');
+  const [photoURL, setPhotoURL] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [logoutLoading, setLogoutLoading] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<string | null>(null);
 
   useEffect(() => {
     loadUserData();
+    
+    // Attempt to sync any pending server operations
+    attemptBackgroundSync()
+      .then(result => {
+        if (result.synced > 0) {
+          setSyncStatus(`Synchronized ${result.synced} pending operations`);
+        }
+      })
+      .catch(error => {
+        console.error('Background sync failed:', error);
+      });
   }, []);
 
   const loadUserData = async () => {
     try {
-      const userStr = await AsyncStorage.getItem('user');
-      if (userStr) {
-        const user = JSON.parse(userStr);
-        setUsername(user.username);
+      setLoading(true);
+      const userData = await api.getUserProfile();
+      
+      if (userData) {
+        setUsername(userData.displayName || 'User');
+        setEmail(userData.email || '');
+        setPhotoURL(userData.photoURL || null);
+        console.log('Loaded user data:', userData);
       }
     } catch (error) {
       console.error('Error loading user data:', error);
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      setLoading(true);
-      await api.logout();
+      const errorMessage = 'Could not load user profile. Please login again.';
+      
+      if (Platform.OS === 'web') {
+        alert(errorMessage);
+      } else {
+        Alert.alert('Error', errorMessage);
+      }
+      
+      // Navigate back to login screen
       navigation.navigate('Login');
-    } catch (error) {
-      console.error('Error during logout:', error);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      setLogoutLoading(true);
+      await api.logout();
+      navigation.navigate('Login');
+    } catch (error) {
+      console.error('Error during logout:', error);
+    } finally {
+      setLogoutLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#007AFF" />
+        <Text style={styles.loadingText}>Loading profile...</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <View style={styles.content}>
-        <Text style={styles.title}>Welcome, {username}!</Text>
+        <View style={styles.profileSection}>
+          {photoURL && (
+            <Image 
+              source={{ uri: photoURL }} 
+              style={styles.profileImage} 
+            />
+          )}
+          <Text style={styles.title}>Welcome, {username}!</Text>
+          {email && <Text style={styles.emailText}>{email}</Text>}
+          {syncStatus && <Text style={styles.syncText}>{syncStatus}</Text>}
+        </View>
+        
         <Text style={styles.subtitle}>You are successfully logged in!</Text>
         
         <View style={styles.statsContainer}>
@@ -69,11 +133,11 @@ export default function DashboardScreen() {
         </View>
 
         <TouchableOpacity 
-          style={[styles.logoutButton, loading && styles.buttonDisabled]} 
+          style={[styles.logoutButton, logoutLoading && styles.buttonDisabled]} 
           onPress={handleLogout}
-          disabled={loading}
+          disabled={logoutLoading}
         >
-          {loading ? (
+          {logoutLoading ? (
             <ActivityIndicator color="#fff" />
           ) : (
             <Text style={styles.logoutButtonText}>Logout</Text>
@@ -89,16 +153,47 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666',
+  },
   content: {
     flex: 1,
     padding: 20,
   },
+  profileSection: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  profileImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    marginBottom: 15,
+  },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    marginBottom: 10,
+    marginBottom: 5,
     textAlign: 'center',
     color: '#333',
+  },
+  emailText: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 10,
+  },
+  syncText: {
+    fontSize: 12,
+    color: '#28a745',
+    marginTop: 5,
   },
   subtitle: {
     fontSize: 16,

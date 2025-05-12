@@ -12,6 +12,7 @@ import { signInWithPopup, signInWithCredential, GoogleAuthProvider } from 'fireb
 import { auth, googleProvider } from '../config/firebase';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { api } from '../services/api';
 
 // Google client IDs from environment variables
 const GOOGLE_WEB_CLIENT_ID = '816779798174-1431kc4pg7opl4m8jc4u7pmt66q1brmb.apps.googleusercontent.com';
@@ -20,6 +21,7 @@ const GOOGLE_IOS_CLIENT_ID = '816779798174-7njrlf8e8lh5fba07ut5ucndehqj64o6.apps
 
 const GoogleSignInButton: React.FC = () => {
   const [loading, setLoading] = useState(false);
+  const [serverLoading, setServerLoading] = useState(false);
   const navigation = useNavigation<any>();
 
   const signInWithGoogle = async () => {
@@ -44,13 +46,22 @@ const GoogleSignInButton: React.FC = () => {
           
           // Log successful sign-in
           console.log('Google Sign-In successful', result.user.email);
+          console.log('User displayName:', result.user.displayName);
+          console.log('User photoURL:', result.user.photoURL);
           
           // This gives you a Google Access Token. You can use it to access the Google API.
           const credential = GoogleAuthProvider.credentialFromResult(result);
           
           if (credential && result.user) {
-            // Store user data
+            // Store user data in AsyncStorage
             await handleSuccessfulLogin(result.user);
+            
+            // Attempt to send token to your backend to record the sign-in
+            // Don't await this to prevent blocking the UI flow
+            recordGoogleSignIn(result.user)
+              .catch(error => console.error('Background sync failed:', error));
+            
+            // Navigate even if server sync fails
             navigation.navigate('Dashboard');
           }
         } catch (popupError: any) {
@@ -101,32 +112,87 @@ const GoogleSignInButton: React.FC = () => {
     }
   };
 
+  const recordGoogleSignIn = async (user: any) => {
+    try {
+      setServerLoading(true);
+      
+      // Get the ID token
+      const idToken = await user.getIdToken();
+      console.log('Sending token to server...');
+      
+      // Try to send to multiple server URLs if needed
+      try {
+        // Send to your server
+        const response = await api.post('/google-auth/verify-token', { idToken });
+        console.log('Server recorded Google sign-in:', response.data);
+        return response.data;
+      } catch (networkError: any) {
+        if (networkError.code === 'ERR_NETWORK') {
+          console.warn('Connection to primary server failed, will sync later');
+          
+          // Store the token to sync later
+          const pendingSyncs = await AsyncStorage.getItem('pendingServerSyncs') || '[]';
+          const syncs = JSON.parse(pendingSyncs);
+          syncs.push({
+            type: 'googleSignIn',
+            idToken,
+            timestamp: Date.now()
+          });
+          await AsyncStorage.setItem('pendingServerSyncs', JSON.stringify(syncs));
+          
+          console.log('Stored sign-in for later sync');
+          return { success: true, syncStatus: 'pending' };
+        }
+        throw networkError;
+      }
+    } catch (error) {
+      console.error('Failed to record Google sign-in in database:', error);
+      // Don't throw error, we still want the user to proceed even if server recording fails
+      return { success: false, error: String(error) };
+    } finally {
+      setServerLoading(false);
+    }
+  };
+
   const handleSuccessfulLogin = async (user: any) => {
-    // Create a minimal user object with important fields
-    const userData = {
-      id: user.uid,
-      email: user.email,
-      displayName: user.displayName || 'User',
-      photoURL: user.photoURL,
-    };
-    
-    // Store auth data in AsyncStorage
-    await AsyncStorage.setItem('user', JSON.stringify(userData));
-    
-    // Generate a token (in a real app, you'd get this from your server)
-    const token = await user.getIdToken();
-    await AsyncStorage.setItem('token', token);
-    
-    console.log('User data stored successfully:', userData.email);
+    try {
+      // Create a user object with Google account data
+      const userData = {
+        id: user.uid,
+        email: user.email,
+        displayName: user.displayName || 'Google User',
+        photoURL: user.photoURL || null,
+        provider: 'google',
+        lastLogin: new Date().toISOString()
+      };
+      
+      // Store auth data in AsyncStorage
+      await AsyncStorage.setItem('user', JSON.stringify(userData));
+      
+      // Generate a token
+      const token = await user.getIdToken();
+      await AsyncStorage.setItem('token', token);
+      
+      console.log('User data stored successfully:', userData);
+      
+      // Display welcome alert
+      if (Platform.OS === 'web') {
+        alert(`Welcome ${userData.displayName}!`);
+      } else {
+        Alert.alert('Login Successful', `Welcome ${userData.displayName}!`);
+      }
+    } catch (error) {
+      console.error('Error storing user data:', error);
+    }
   };
 
   return (
     <TouchableOpacity
       style={styles.googleButton}
       onPress={signInWithGoogle}
-      disabled={loading}
+      disabled={loading || serverLoading}
     >
-      {loading ? (
+      {loading || serverLoading ? (
         <ActivityIndicator color="#ffffff" size="small" />
       ) : (
         <View style={styles.buttonContent}>

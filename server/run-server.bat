@@ -1,0 +1,3 @@
+@echo off
+echo Starting Mobile Security Auth Server...
+node index.js 

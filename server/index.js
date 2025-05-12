@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/user');
+const googleAuthRoutes = require('./routes/google-auth');
 const db = require('./config/database');
 
 const app = express();
@@ -24,12 +25,13 @@ app.use(express.json());
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/user', userRoutes);
+app.use('/api/google-auth', googleAuthRoutes);
 
 // Simple route to check Firebase credentials
 app.get('/api/check-firebase', (req, res) => {
   res.json({
     message: 'Firebase credentials loaded',
-    project_id: 'auth-4aa50',
+    project_id: process.env.FIREBASE_PROJECT_ID || 'oauth-4df77',
     firebase_client_email_set: !!process.env.FIREBASE_CLIENT_EMAIL,
     firebase_private_key_set: !!process.env.FIREBASE_PRIVATE_KEY
   });
