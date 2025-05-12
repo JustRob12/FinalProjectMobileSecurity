@@ -4,6 +4,7 @@ const cors = require('cors');
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/user');
 const googleAuthRoutes = require('./routes/google-auth');
+const financeRoutes = require('./routes/finance');
 const db = require('./config/database');
 
 const app = express();
@@ -26,6 +27,7 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/google-auth', googleAuthRoutes);
+app.use('/api/finance', financeRoutes);
 
 // Simple route to check Firebase credentials
 app.get('/api/check-firebase', (req, res) => {

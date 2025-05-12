@@ -5,11 +5,25 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
 import DashboardScreen from './screens/DashboardScreen';
+import FinanceDashboardScreen from './screens/FinanceDashboardScreen';
+import WalletsScreen from './screens/WalletsScreen';
+import WalletFormScreen from './screens/WalletFormScreen';
+import WalletDetailScreen from './screens/WalletDetailScreen';
+import TransactionsScreen from './screens/TransactionsScreen';
+import TransactionFormScreen from './screens/TransactionFormScreen';
+import TransactionDetailScreen from './screens/TransactionDetailScreen';
 
 export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
   Dashboard: undefined;
+  FinanceDashboard: undefined;
+  Wallets: undefined;
+  WalletForm: { mode: 'create' | 'edit', walletId?: number };
+  WalletDetail: { walletId: number };
+  Transactions: undefined;
+  TransactionForm: { mode: 'create' | 'edit', transactionId?: number, wallet_id?: number };
+  TransactionDetail: { transactionId: number };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -45,6 +59,56 @@ export default function App() {
           options={{
             title: 'Dashboard',
             headerLeft: () => null, // Disable back button
+          }}
+        />
+        <Stack.Screen
+          name="FinanceDashboard"
+          component={FinanceDashboardScreen}
+          options={{
+            title: 'Finance',
+            headerLeft: () => null,
+          }}
+        />
+        <Stack.Screen
+          name="Wallets"
+          component={WalletsScreen}
+          options={{
+            title: 'My Wallets',
+          }}
+        />
+        <Stack.Screen
+          name="WalletForm"
+          component={WalletFormScreen}
+          options={({ route }) => ({
+            title: route.params?.mode === 'edit' ? 'Edit Wallet' : 'New Wallet',
+          })}
+        />
+        <Stack.Screen
+          name="Transactions"
+          component={TransactionsScreen}
+          options={{
+            title: 'Transactions',
+          }}
+        />
+        <Stack.Screen
+          name="TransactionForm"
+          component={TransactionFormScreen}
+          options={({ route }) => ({
+            title: route.params?.mode === 'edit' ? 'Edit Transaction' : 'New Transaction',
+          })}
+        />
+        <Stack.Screen
+          name="TransactionDetail"
+          component={TransactionDetailScreen}
+          options={{
+            title: 'Transaction Details',
+          }}
+        />
+        <Stack.Screen
+          name="WalletDetail"
+          component={WalletDetailScreen}
+          options={{
+            title: 'Wallet Details',
           }}
         />
       </Stack.Navigator>

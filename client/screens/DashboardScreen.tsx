@@ -8,6 +8,7 @@ import {
   Image,
   Alert,
   Platform,
+  ScrollView,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
@@ -15,6 +16,7 @@ import { RootStackParamList } from '../App';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as api from '../services/api';
 import { attemptBackgroundSync } from '../services/syncService';
+import { Ionicons } from '@expo/vector-icons';
 
 type DashboardScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Dashboard'>;
 
@@ -35,9 +37,12 @@ export default function DashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [logoutLoading, setLogoutLoading] = useState(false);
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
+  const [financeSummary, setFinanceSummary] = useState<api.FinancialSummary | null>(null);
+  const [wallets, setWallets] = useState<api.Wallet[]>([]);
 
   useEffect(() => {
     loadUserData();
+    loadFinanceData();
     
     // Attempt to sync any pending server operations
     attemptBackgroundSync()
@@ -79,6 +84,20 @@ export default function DashboardScreen() {
     }
   };
 
+  const loadFinanceData = async () => {
+    try {
+      // Load wallets
+      const walletsData = await api.getWallets();
+      setWallets(walletsData);
+
+      // Load financial summary
+      const summaryData = await api.getFinancialSummary('month');
+      setFinanceSummary(summaryData);
+    } catch (error) {
+      console.error('Error loading finance data:', error);
+    }
+  };
+
   const handleLogout = async () => {
     try {
       setLogoutLoading(true);
@@ -89,6 +108,13 @@ export default function DashboardScreen() {
     } finally {
       setLogoutLoading(false);
     }
+  };
+
+  const formatCurrency = (amount: number) => {
+    return amount.toLocaleString('en-US', {
+      style: 'currency',
+      currency: 'PHP',
+    });
   };
 
   if (loading) {
@@ -102,7 +128,7 @@ export default function DashboardScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.content}>
+      <ScrollView style={styles.content}>
         <View style={styles.profileSection}>
           {photoURL && (
             <Image 
@@ -119,17 +145,61 @@ export default function DashboardScreen() {
         
         <View style={styles.statsContainer}>
           <View style={styles.statBox}>
-            <Text style={styles.statNumber}>5</Text>
-            <Text style={styles.statLabel}>Projects</Text>
+            <Text style={styles.statNumber}>{financeSummary ? wallets.length : 0}</Text>
+            <Text style={styles.statLabel}>Wallets</Text>
           </View>
           <View style={styles.statBox}>
-            <Text style={styles.statNumber}>12</Text>
-            <Text style={styles.statLabel}>Tasks</Text>
+            <Text style={styles.statNumber}>{financeSummary ? formatCurrency(financeSummary.totalBalance) : '₱0.00'}</Text>
+            <Text style={styles.statLabel}>Balance</Text>
           </View>
           <View style={styles.statBox}>
-            <Text style={styles.statNumber}>3</Text>
-            <Text style={styles.statLabel}>Completed</Text>
+            <Text style={styles.statNumber}>{financeSummary ? formatCurrency(financeSummary.netSavings) : '₱0.00'}</Text>
+            <Text style={styles.statLabel}>Savings</Text>
           </View>
+        </View>
+
+        {financeSummary && (
+          <View style={styles.financeSummaryCard}>
+            <Text style={styles.financeSummaryTitle}>Monthly Summary</Text>
+            
+            <View style={styles.financeSummaryRow}>
+              <View style={styles.financeSummaryItem}>
+                <View style={[styles.iconCircle, {backgroundColor: 'rgba(76, 175, 80, 0.2)'}]}>
+                  <Ionicons name="arrow-down-outline" size={16} color="#4CAF50" />
+                </View>
+                <View>
+                  <Text style={styles.financeSummaryLabel}>Income</Text>
+                  <Text style={[styles.financeSummaryValue, {color: '#4CAF50'}]}>
+                    {formatCurrency(financeSummary.totalIncome)}
+                  </Text>
+                </View>
+              </View>
+              
+              <View style={styles.financeSummaryDivider} />
+              
+              <View style={styles.financeSummaryItem}>
+                <View style={[styles.iconCircle, {backgroundColor: 'rgba(244, 67, 54, 0.2)'}]}>
+                  <Ionicons name="arrow-up-outline" size={16} color="#F44336" />
+                </View>
+                <View>
+                  <Text style={styles.financeSummaryLabel}>Expenses</Text>
+                  <Text style={[styles.financeSummaryValue, {color: '#F44336'}]}>
+                    {formatCurrency(financeSummary.totalExpenses)}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        )}
+
+        <View style={styles.featuresContainer}>
+          <TouchableOpacity 
+            style={styles.featureButton}
+            onPress={() => navigation.navigate('FinanceDashboard')}
+          >
+            <Ionicons name="wallet-outline" size={24} color="#007AFF" />
+            <Text style={styles.featureButtonText}>Finance Tracker</Text>
+          </TouchableOpacity>
         </View>
 
         <TouchableOpacity 
@@ -143,7 +213,7 @@ export default function DashboardScreen() {
             <Text style={styles.logoutButtonText}>Logout</Text>
           )}
         </TouchableOpacity>
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -222,7 +292,7 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   statNumber: {
-    fontSize: 24,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#007AFF',
   },
@@ -230,6 +300,59 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginTop: 5,
+  },
+  financeSummaryCard: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  financeSummaryTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 15,
+  },
+  financeSummaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  financeSummaryItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  financeSummaryDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: '#e0e0e0',
+    marginHorizontal: 15,
+  },
+  financeSummaryLabel: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 5,
+  },
+  financeSummaryValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  iconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
   },
   logoutButton: {
     backgroundColor: '#ff3b30',
@@ -245,5 +368,24 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  featuresContainer: {
+    marginVertical: 20,
+  },
+  featureButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0f7ff',
+    borderRadius: 10,
+    padding: 16,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#d0e1f9',
+  },
+  featureButtonText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#007AFF',
+    marginLeft: 12,
   },
 }); 

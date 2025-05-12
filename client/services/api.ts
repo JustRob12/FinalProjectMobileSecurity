@@ -12,6 +12,73 @@ import {
   User
 } from 'firebase/auth';
 
+// Type definitions for finance models
+export interface Wallet {
+  id: number;
+  user_id: number;
+  name: string;
+  balance: number;
+  currency: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Transaction {
+  id: number;
+  wallet_id: number;
+  user_id: number;
+  amount: number;
+  type: 'income' | 'expense' | 'transfer';
+  category: string;
+  description?: string;
+  transaction_date: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Category {
+  id: number;
+  name: string;
+  type: 'income' | 'expense' | 'both';
+  icon?: string;
+  color?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FinancialSummary {
+  period: string;
+  totalIncome: number;
+  totalExpenses: number;
+  netSavings: number;
+  totalBalance: number;
+  expensesByCategory: Array<{category: string, total: number}>;
+  recentTransactions: Array<Transaction & {wallet_name: string}>;
+}
+
+export interface WalletCreateData {
+  name: string;
+  balance?: number;
+  currency?: string;
+}
+
+export interface TransactionCreateData {
+  wallet_id: number;
+  amount: number;
+  type: 'income' | 'expense' | 'transfer';
+  category: string;
+  description?: string;
+  transaction_date?: string;
+}
+
+export interface TransactionFilterParams {
+  wallet_id?: number;
+  type?: 'income' | 'expense' | 'transfer';
+  category?: string;
+  start_date?: string;
+  end_date?: string;
+}
+
 // Define multiple potential server URLs
 const SERVER_URLS = {
   local: 'http://localhost:3001/api',
@@ -96,12 +163,53 @@ export const getCurrentUser = (): Promise<User> => {
   });
 };
 
+// Helper to ensure photoURL is valid
+const ensureValidPhotoURL = (url: string | null): string | null => {
+  if (!url) return null;
+  
+  // Log the URL for debugging
+  console.log('Processing photoURL:', url);
+  
+  // If URL doesn't start with http or https, it might be a relative URL or invalid
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    console.log('URL does not start with http(s), may be invalid');
+    // For Google photos that might use a relative path
+    if (url.startsWith('/')) {
+      return `https://lh3.googleusercontent.com${url}`;
+    }
+    return null;
+  }
+  
+  return url;
+};
+
 export const getUserProfile = async () => {
   try {
     // First check AsyncStorage for cached user data
     const storedUser = await AsyncStorage.getItem('user');
     if (storedUser) {
-      return JSON.parse(storedUser);
+      const userData = JSON.parse(storedUser);
+      console.log('Using cached user data:', userData);
+      
+      // Process the photoURL
+      userData.photoURL = ensureValidPhotoURL(userData.photoURL);
+      
+      // If we have a cached user but the photoURL might be null, try to refresh it
+      if (!userData.photoURL) {
+        try {
+          const user = await getCurrentUser();
+          if (user && user.photoURL) {
+            console.log('Updating photoURL from Firebase:', user.photoURL);
+            userData.photoURL = ensureValidPhotoURL(user.photoURL);
+            // Update the cache
+            await AsyncStorage.setItem('user', JSON.stringify(userData));
+          }
+        } catch (err) {
+          console.log('Failed to refresh photoURL:', err);
+        }
+      }
+      
+      return userData;
     }
 
     // If no cached data, try to get current Firebase user
@@ -110,12 +218,20 @@ export const getUserProfile = async () => {
       throw new Error('User not authenticated');
     }
 
+    console.log('Firebase user data:', {
+      uid: user.uid,
+      email: user.email,
+      displayName: user.displayName,
+      photoURL: user.photoURL,
+      providerData: user.providerData
+    });
+
     // Create and store user profile
     const userData = {
       id: user.uid,
       email: user.email,
       displayName: user.displayName || 'User',
-      photoURL: user.photoURL || null,
+      photoURL: ensureValidPhotoURL(user.photoURL),
       provider: user.providerData[0]?.providerId || 'unknown',
       lastLogin: new Date().toISOString(),
     };
@@ -135,16 +251,26 @@ export const login = async (email: string, password: string) => {
     const userCredential: UserCredential = await signInWithEmailAndPassword(auth, email, password);
     const token = await userCredential.user.getIdToken();
     
+    console.log('Login successful for user:', {
+      uid: userCredential.user.uid,
+      email: userCredential.user.email,
+      displayName: userCredential.user.displayName,
+      photoURL: userCredential.user.photoURL,
+      providerData: userCredential.user.providerData
+    });
+    
     // Store auth data in AsyncStorage
     await AsyncStorage.setItem('token', token);
     
     const userData = {
       id: userCredential.user.uid,
       email: userCredential.user.email,
-      displayName: userCredential.user.displayName,
-      photoURL: userCredential.user.photoURL,
+      displayName: userCredential.user.displayName || 'User',
+      photoURL: ensureValidPhotoURL(userCredential.user.photoURL),
+      provider: userCredential.user.providerData[0]?.providerId || 'unknown',
     };
     
+    console.log('Storing user data in AsyncStorage:', userData);
     await AsyncStorage.setItem('user', JSON.stringify(userData));
     
     return { token, user: userData };
@@ -220,5 +346,131 @@ export const logout = async () => {
     await AsyncStorage.removeItem('user');
   } catch (error) {
     console.error('Error during logout:', error);
+  }
+};
+
+// Finance API Functions
+
+// Wallet API
+export const getWallets = async (): Promise<Wallet[]> => {
+  try {
+    const response = await api.get('/finance/wallets');
+    return response.data.wallets;
+  } catch (error) {
+    console.error('Error fetching wallets:', error);
+    throw error;
+  }
+};
+
+export const getWallet = async (walletId: number): Promise<Wallet> => {
+  try {
+    const response = await api.get(`/finance/wallets/${walletId}`);
+    return response.data.wallet;
+  } catch (error) {
+    console.error('Error fetching wallet:', error);
+    throw error;
+  }
+};
+
+export const createWallet = async (walletData: WalletCreateData): Promise<Wallet> => {
+  try {
+    const response = await api.post('/finance/wallets', walletData);
+    return response.data.wallet;
+  } catch (error) {
+    console.error('Error creating wallet:', error);
+    throw error;
+  }
+};
+
+export const updateWallet = async (walletId: number, walletData: Partial<WalletCreateData>): Promise<Wallet> => {
+  try {
+    const response = await api.put(`/finance/wallets/${walletId}`, walletData);
+    return response.data.wallet;
+  } catch (error) {
+    console.error('Error updating wallet:', error);
+    throw error;
+  }
+};
+
+export const deleteWallet = async (walletId: number): Promise<{success: boolean, message: string}> => {
+  try {
+    const response = await api.delete(`/finance/wallets/${walletId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error deleting wallet:', error);
+    throw error;
+  }
+};
+
+// Transaction API
+export const getTransactions = async (filters: TransactionFilterParams = {}): Promise<Transaction[]> => {
+  try {
+    const response = await api.get('/finance/transactions', { params: filters });
+    return response.data.transactions;
+  } catch (error) {
+    console.error('Error fetching transactions:', error);
+    throw error;
+  }
+};
+
+export const getTransaction = async (transactionId: number): Promise<Transaction> => {
+  try {
+    const response = await api.get(`/finance/transactions/${transactionId}`);
+    return response.data.transaction;
+  } catch (error) {
+    console.error('Error fetching transaction:', error);
+    throw error;
+  }
+};
+
+export const createTransaction = async (transactionData: TransactionCreateData): Promise<Transaction> => {
+  try {
+    const response = await api.post('/finance/transactions', transactionData);
+    return response.data.transaction;
+  } catch (error) {
+    console.error('Error creating transaction:', error);
+    throw error;
+  }
+};
+
+export const updateTransaction = async (transactionId: number, transactionData: Partial<TransactionCreateData>): Promise<Transaction> => {
+  try {
+    const response = await api.put(`/finance/transactions/${transactionId}`, transactionData);
+    return response.data.transaction;
+  } catch (error) {
+    console.error('Error updating transaction:', error);
+    throw error;
+  }
+};
+
+export const deleteTransaction = async (transactionId: number): Promise<{success: boolean, message: string}> => {
+  try {
+    const response = await api.delete(`/finance/transactions/${transactionId}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error deleting transaction:', error);
+    throw error;
+  }
+};
+
+// Category API
+export const getCategories = async (): Promise<Category[]> => {
+  try {
+    const response = await api.get('/finance/categories');
+    return response.data.categories;
+  } catch (error) {
+    console.error('Error fetching categories:', error);
+    throw error;
+  }
+};
+
+// Summary API
+export const getFinancialSummary = async (period: 'day' | 'week' | 'month' | 'year' = 'month'): Promise<FinancialSummary> => {
+  try {
+    const response = await api.get('/finance/summary', { params: { period } });
+    return response.data.summary;
+  } catch (error) {
+    console.error('Error fetching financial summary:', error);
+    throw error;
   }
 }; 
