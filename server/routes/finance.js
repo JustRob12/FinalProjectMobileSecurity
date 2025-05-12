@@ -68,15 +68,15 @@ router.get('/wallets/:id', verifyToken, async (req, res) => {
 router.post('/wallets', verifyToken, async (req, res) => {
   try {
     const userId = await getUserIdFromFirebaseUid(req.user.uid);
-    const { name, balance, currency } = req.body;
+    const { name, balance, currency, bankAccountToken } = req.body;
     
     if (!name) {
       return res.status(400).json({ success: false, message: 'Wallet name is required' });
     }
     
     const [result] = await db.query(
-      'INSERT INTO wallets (user_id, name, balance, currency) VALUES (?, ?, ?, ?)',
-      [userId, name, balance || 0, currency || 'PHP']
+      'INSERT INTO wallets (user_id, name, balance, currency, bankAccountToken) VALUES (?, ?, ?, ?, ?)',
+      [userId, name, balance || 0, currency || 'USD', bankAccountToken || null]
     );
     
     const [newWallet] = await db.query(
@@ -96,7 +96,7 @@ router.put('/wallets/:id', verifyToken, async (req, res) => {
   try {
     const userId = await getUserIdFromFirebaseUid(req.user.uid);
     const walletId = req.params.id;
-    const { name, balance, currency } = req.body;
+    const { name, balance, currency, bankAccountToken } = req.body;
     
     // Check if wallet belongs to user
     const [wallets] = await db.query(
@@ -108,12 +108,41 @@ router.put('/wallets/:id', verifyToken, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Wallet not found' });
     }
     
-    // Update the wallet
-    await db.query(
-      'UPDATE wallets SET name = ?, balance = ?, currency = ? WHERE id = ?',
-      [name || wallets[0].name, balance !== undefined ? balance : wallets[0].balance, 
-       currency || wallets[0].currency, walletId]
-    );
+    // Prepare update fields and values
+    const updateFields = [];
+    const updateValues = [];
+    
+    if (name !== undefined) {
+      updateFields.push('name = ?');
+      updateValues.push(name);
+    }
+    
+    if (balance !== undefined) {
+      updateFields.push('balance = ?');
+      updateValues.push(balance);
+    }
+    
+    if (currency !== undefined) {
+      updateFields.push('currency = ?');
+      updateValues.push(currency);
+    }
+    
+    if (bankAccountToken !== undefined) {
+      updateFields.push('bankAccountToken = ?');
+      updateValues.push(bankAccountToken);
+    }
+    
+    // Only update if there are fields to update
+    if (updateFields.length > 0) {
+      // Add walletId to values
+      updateValues.push(walletId);
+      
+      // Update the wallet
+      await db.query(
+        `UPDATE wallets SET ${updateFields.join(', ')} WHERE id = ?`,
+        updateValues
+      );
+    }
     
     // Get the updated wallet
     const [updatedWallet] = await db.query(

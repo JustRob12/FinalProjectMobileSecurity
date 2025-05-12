@@ -210,6 +210,13 @@ const WalletDetailScreen = () => {
         <Text style={styles.walletBalance}>{formatCurrency(wallet.balance)}</Text>
         <Text style={styles.walletCurrency}>{wallet.currency}</Text>
         
+        {wallet.bankAccount && (
+          <View style={styles.bankAccountContainer}>
+            <Text style={styles.bankAccountLabel}>Bank Account:</Text>
+            <Text style={styles.bankAccountNumber}>{wallet.bankAccount}</Text>
+          </View>
+        )}
+        
         <View style={styles.walletStats}>
           <View style={styles.statItem}>
             <Text style={styles.statValue}>
@@ -472,6 +479,26 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '500',
+  },
+  bankAccountContainer: {
+    backgroundColor: '#f9f9f9',
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 10,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#eee',
+  },
+  bankAccountLabel: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+  },
+  bankAccountNumber: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginTop: 4,
+    letterSpacing: 1,
   },
 });
 

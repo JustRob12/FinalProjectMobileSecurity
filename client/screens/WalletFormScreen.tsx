@@ -24,6 +24,7 @@ type FormData = {
   name: string;
   balance: string;
   currency: string;
+  bankAccount: string;
 };
 
 // Available currencies
@@ -47,6 +48,7 @@ const WalletFormScreen = () => {
     name: '',
     balance: '0',
     currency: 'USD',
+    bankAccount: '',
   });
   
   const [loading, setLoading] = useState(false);
@@ -67,6 +69,7 @@ const WalletFormScreen = () => {
         name: wallet.name,
         balance: wallet.balance.toString(),
         currency: wallet.currency,
+        bankAccount: wallet.bankAccount || '',
       });
     } catch (error) {
       showAlert('Error', 'Failed to load wallet data');
@@ -112,6 +115,7 @@ const WalletFormScreen = () => {
         name: formData.name.trim(),
         balance: parseFloat(formData.balance),
         currency: formData.currency,
+        bankAccount: formData.bankAccount.trim() || undefined,
       };
       
       if (mode === 'edit' && walletId) {
@@ -192,6 +196,17 @@ const WalletFormScreen = () => {
               ))}
             </Picker>
           </View>
+
+          <Text style={styles.label}>Bank Account Number (Optional)</Text>
+          <TextInput
+            style={styles.input}
+            value={formData.bankAccount}
+            onChangeText={(value) => handleChange('bankAccount', value)}
+            placeholder="Enter bank account number"
+            keyboardType="numeric"
+            secureTextEntry={true}
+          />
+          <Text style={styles.helperText}>This will be stored securely and tokenized.</Text>
 
           <TouchableOpacity
             style={[styles.submitButton, loading && styles.disabledButton]}
@@ -283,6 +298,13 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  helperText: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: -10,
+    marginBottom: 15,
+    fontStyle: 'italic',
   },
 });
 

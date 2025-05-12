@@ -11,6 +11,8 @@ import {
   onAuthStateChanged,
   User
 } from 'firebase/auth';
+import { secureStore, secureRetrieve, secureClear } from './secureStorage';
+import { tokenize, detokenize } from './tokenization';
 
 // Type definitions for finance models
 export interface Wallet {
@@ -21,6 +23,8 @@ export interface Wallet {
   currency: string;
   created_at: string;
   updated_at: string;
+  bankAccount?: string;
+  bankAccountToken?: string;
 }
 
 export interface Transaction {
@@ -60,6 +64,8 @@ export interface WalletCreateData {
   name: string;
   balance?: number;
   currency?: string;
+  bankAccount?: string;
+  bankAccountToken?: string;
 }
 
 export interface TransactionCreateData {
@@ -185,31 +191,16 @@ const ensureValidPhotoURL = (url: string | null): string | null => {
 
 export const getUserProfile = async () => {
   try {
-    // First check AsyncStorage for cached user data
-    const storedUser = await AsyncStorage.getItem('user');
-    if (storedUser) {
-      const userData = JSON.parse(storedUser);
-      console.log('Using cached user data:', userData);
-      
-      // Process the photoURL
-      userData.photoURL = ensureValidPhotoURL(userData.photoURL);
-      
-      // If we have a cached user but the photoURL might be null, try to refresh it
-      if (!userData.photoURL) {
-        try {
-          const user = await getCurrentUser();
-          if (user && user.photoURL) {
-            console.log('Updating photoURL from Firebase:', user.photoURL);
-            userData.photoURL = ensureValidPhotoURL(user.photoURL);
-            // Update the cache
-            await AsyncStorage.setItem('user', JSON.stringify(userData));
-          }
-        } catch (err) {
-          console.log('Failed to refresh photoURL:', err);
-        }
+    // First check secure storage for cached user data
+    try {
+      const cachedUserData = await secureRetrieve('user');
+      if (cachedUserData) {
+        console.log('Using cached user data');
+        return cachedUserData;
       }
-      
-      return userData;
+    } catch (storageError) {
+      console.warn('Failed to retrieve user data from secure storage:', storageError);
+      // Continue to Firebase data
     }
 
     // If no cached data, try to get current Firebase user
@@ -217,14 +208,6 @@ export const getUserProfile = async () => {
     if (!user) {
       throw new Error('User not authenticated');
     }
-
-    console.log('Firebase user data:', {
-      uid: user.uid,
-      email: user.email,
-      displayName: user.displayName,
-      photoURL: user.photoURL,
-      providerData: user.providerData
-    });
 
     // Create and store user profile
     const userData = {
@@ -236,8 +219,14 @@ export const getUserProfile = async () => {
       lastLogin: new Date().toISOString(),
     };
 
-    // Cache the user data
-    await AsyncStorage.setItem('user', JSON.stringify(userData));
+    try {
+      // Cache the user data securely
+      await secureStore('user', userData);
+    } catch (storeError) {
+      console.warn('Failed to store user data securely:', storeError);
+      // Continue with the userData we have
+    }
+    
     return userData;
   } catch (error) {
     console.error('Error fetching user profile:', error);
@@ -338,14 +327,14 @@ export const register = async (username: string, email: string, password: string
 
 export const logout = async () => {
   try {
-    // Firebase sign out
     await signOut(auth);
-    
-    // Clear local storage
-    await AsyncStorage.removeItem('token');
-    await AsyncStorage.removeItem('user');
+    // Clear secure storage
+    await secureClear('user');
+    await secureClear('token');
+    console.log('Logged out successfully');
   } catch (error) {
     console.error('Error during logout:', error);
+    throw error;
   }
 };
 
@@ -365,16 +354,35 @@ export const getWallets = async (): Promise<Wallet[]> => {
 export const getWallet = async (walletId: number): Promise<Wallet> => {
   try {
     const response = await api.get(`/finance/wallets/${walletId}`);
-    return response.data.wallet;
+    const wallet = response.data.wallet;
+    
+    // If this wallet has tokenized data, detokenize it
+    if (wallet.bankAccountToken) {
+      const bankAccount = await detokenize(wallet.bankAccountToken);
+      if (bankAccount) {
+        wallet.bankAccount = bankAccount;
+      }
+    }
+    
+    return wallet;
   } catch (error) {
-    console.error('Error fetching wallet:', error);
+    console.error(`Error fetching wallet ${walletId}:`, error);
     throw error;
   }
 };
 
 export const createWallet = async (walletData: WalletCreateData): Promise<Wallet> => {
   try {
-    const response = await api.post('/finance/wallets', walletData);
+    // If wallet data contains sensitive information like bank account, tokenize it
+    let secureWalletData = { ...walletData };
+    
+    if (walletData.bankAccount) {
+      secureWalletData.bankAccountToken = await tokenize(walletData.bankAccount);
+      // Remove the original sensitive data
+      delete secureWalletData.bankAccount;
+    }
+    
+    const response = await api.post('/finance/wallets', secureWalletData);
     return response.data.wallet;
   } catch (error) {
     console.error('Error creating wallet:', error);

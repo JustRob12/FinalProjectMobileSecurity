@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { View, Text, ActivityIndicator } from 'react-native';
 
 import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
@@ -12,6 +13,8 @@ import WalletDetailScreen from './screens/WalletDetailScreen';
 import TransactionsScreen from './screens/TransactionsScreen';
 import TransactionFormScreen from './screens/TransactionFormScreen';
 import TransactionDetailScreen from './screens/TransactionDetailScreen';
+
+import { initializeSecureStorage } from './services/secureStorage';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -29,6 +32,45 @@ export type RootStackParamList = {
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
+  const [initializing, setInitializing] = useState(true);
+  const [initError, setInitError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Initialize secure storage and other security features
+    const initSecurity = async () => {
+      try {
+        await initializeSecureStorage();
+        // Other security initializations can go here
+        setInitializing(false);
+      } catch (error) {
+        console.error('Failed to initialize security:', error);
+        setInitError('Failed to initialize security features. Please restart the app.');
+        setInitializing(false);
+      }
+    };
+
+    initSecurity();
+  }, []);
+
+  if (initializing) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#007AFF" />
+        <Text style={{ marginTop: 10 }}>Initializing secure environment...</Text>
+      </View>
+    );
+  }
+
+  if (initError) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+        <Text style={{ color: 'red', textAlign: 'center', marginBottom: 10 }}>
+          {initError}
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <NavigationContainer>
       <Stack.Navigator
