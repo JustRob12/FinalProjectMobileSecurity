@@ -13,6 +13,7 @@ import { useNavigation } from '@react-navigation/native';
 import { RootStackParamList } from '../App';
 import * as api from '../services/api';
 import ConfirmationModal from '../components/ConfirmationModal';
+import GoogleSignInButton from '../components/GoogleSignInButton';
 
 type LoginScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Login'>;
 
@@ -95,6 +96,15 @@ export default function LoginScreen() {
             <Text style={styles.buttonText}>Login</Text>
           )}
         </TouchableOpacity>
+
+        <View style={styles.dividerContainer}>
+          <View style={styles.divider} />
+          <Text style={styles.dividerText}>OR</Text>
+          <View style={styles.divider} />
+        </View>
+
+        <GoogleSignInButton />
+        
         <TouchableOpacity
           onPress={() => navigation.navigate('Register')}
           style={styles.linkButton}
@@ -178,6 +188,20 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  divider: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#ddd',
+  },
+  dividerText: {
+    marginHorizontal: 10,
+    color: '#666',
   },
   linkButton: {
     marginTop: 15,
