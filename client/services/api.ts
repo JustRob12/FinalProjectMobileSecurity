@@ -259,6 +259,17 @@ export const login = async (email: string, password: string) => {
       provider: userCredential.user.providerData[0]?.providerId || 'unknown',
     };
     
+    // Call the backend to ensure user is created in the database
+    try {
+      await api.get('/user/profile', {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+    } catch (error) {
+      console.warn('Error confirming user in database. This might cause issues with app functionality.', error);
+    }
+    
     console.log('Storing user data in AsyncStorage:', userData);
     await AsyncStorage.setItem('user', JSON.stringify(userData));
     
@@ -297,6 +308,16 @@ export const register = async (username: string, email: string, password: string
     if (userCredential.user) {
       await updateProfile(userCredential.user, {
         displayName: username
+      });
+      
+      // Get user token for server authorization
+      const token = await userCredential.user.getIdToken();
+      
+      // Call the backend to ensure user is created in the database
+      await api.post('/user/profile', {}, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
       });
     }
     

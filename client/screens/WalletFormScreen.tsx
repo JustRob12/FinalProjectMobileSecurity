@@ -115,7 +115,7 @@ const WalletFormScreen = () => {
         name: formData.name.trim(),
         balance: parseFloat(formData.balance),
         currency: formData.currency,
-        bankAccount: formData.bankAccount.trim() || undefined,
+        bankAccount: typeof formData.bankAccount === 'string' ? formData.bankAccount.trim() : formData.bankAccount || undefined,
       };
       
       if (mode === 'edit' && walletId) {

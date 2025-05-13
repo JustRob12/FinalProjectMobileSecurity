@@ -188,6 +188,14 @@ const TransactionFormScreen = () => {
     category => category.type === 'both' || category.type === formData.type
   );
 
+  // Create a map to filter out duplicate category names
+  const uniqueCategories = filteredCategories.reduce((unique, category) => {
+    if (!unique.some(item => item.name === category.name)) {
+      unique.push(category);
+    }
+    return unique;
+  }, [] as api.Category[]);
+
   if (initialLoading) {
     return (
       <View style={styles.loadingContainer}>
@@ -287,7 +295,7 @@ const TransactionFormScreen = () => {
               style={styles.picker}
               enabled={!loading}
             >
-              {filteredCategories.map(category => (
+              {uniqueCategories.map(category => (
                 <Picker.Item
                   key={category.id}
                   label={category.name}
