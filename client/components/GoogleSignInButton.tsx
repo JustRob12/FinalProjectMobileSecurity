@@ -13,6 +13,7 @@ import { auth, googleProvider } from '../config/firebase';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api } from '../services/api';
+import ConfirmationModal from './ConfirmationModal';
 
 // Google client IDs from environment variables
 const GOOGLE_WEB_CLIENT_ID = '816779798174-1431kc4pg7opl4m8jc4u7pmt66q1brmb.apps.googleusercontent.com';
@@ -22,6 +23,8 @@ const GOOGLE_IOS_CLIENT_ID = '816779798174-7njrlf8e8lh5fba07ut5ucndehqj64o6.apps
 const GoogleSignInButton: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [serverLoading, setServerLoading] = useState(false);
+  const [successModalVisible, setSuccessModalVisible] = useState(false);
+  const [welcomeMessage, setWelcomeMessage] = useState('');
   const navigation = useNavigation<any>();
 
   const signInWithGoogle = async () => {
@@ -61,8 +64,9 @@ const GoogleSignInButton: React.FC = () => {
             recordGoogleSignIn(result.user)
               .catch(error => console.error('Background sync failed:', error));
             
-            // Navigate even if server sync fails
-            navigation.navigate('Dashboard');
+            // Show success modal instead of navigating immediately
+            setWelcomeMessage(`Welcome ${result.user.displayName || 'Google User'}!`);
+            setSuccessModalVisible(true);
           }
         } catch (popupError: any) {
           // Get detailed error information
@@ -156,12 +160,15 @@ const GoogleSignInButton: React.FC = () => {
 
   const handleSuccessfulLogin = async (user: any) => {
     try {
+      // Log the photo URL for debugging
+      console.log('Google photoURL before processing:', user.photoURL);
+      
       // Create a user object with Google account data
       const userData = {
         id: user.uid,
         email: user.email,
         displayName: user.displayName || 'Google User',
-        photoURL: user.photoURL || null,
+        photoURL: user.photoURL, // Store original URL without modification
         provider: 'google',
         lastLogin: new Date().toISOString()
       };
@@ -174,32 +181,41 @@ const GoogleSignInButton: React.FC = () => {
       await AsyncStorage.setItem('token', token);
       
       console.log('User data stored successfully:', userData);
-      
-      // Display welcome alert
-      if (Platform.OS === 'web') {
-        alert(`Welcome ${userData.displayName}!`);
-      } else {
-        Alert.alert('Login Successful', `Welcome ${userData.displayName}!`);
-      }
     } catch (error) {
       console.error('Error storing user data:', error);
     }
   };
 
+  const handleSuccessModalConfirm = () => {
+    setSuccessModalVisible(false);
+    navigation.navigate('Dashboard');
+  };
+
   return (
-    <TouchableOpacity
-      style={styles.googleButton}
-      onPress={signInWithGoogle}
-      disabled={loading || serverLoading}
-    >
-      {loading || serverLoading ? (
-        <ActivityIndicator color="#ffffff" size="small" />
-      ) : (
-        <View style={styles.buttonContent}>
-          <Text style={styles.googleButtonText}>Sign in with Google</Text>
-        </View>
-      )}
-    </TouchableOpacity>
+    <>
+      <TouchableOpacity
+        style={styles.googleButton}
+        onPress={signInWithGoogle}
+        disabled={loading || serverLoading}
+      >
+        {loading || serverLoading ? (
+          <ActivityIndicator color="#ffffff" size="small" />
+        ) : (
+          <View style={styles.buttonContent}>
+            <Text style={styles.googleButtonText}>Sign in with Google</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+      
+      <ConfirmationModal
+        visible={successModalVisible}
+        title="Google Sign-In Successful"
+        message={welcomeMessage}
+        confirmText="Continue"
+        confirmColor="#4CAF50"
+        onConfirm={handleSuccessModalConfirm}
+      />
+    </>
   );
 };
 

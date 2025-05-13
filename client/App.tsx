@@ -13,6 +13,7 @@ import WalletDetailScreen from './screens/WalletDetailScreen';
 import TransactionsScreen from './screens/TransactionsScreen';
 import TransactionFormScreen from './screens/TransactionFormScreen';
 import TransactionDetailScreen from './screens/TransactionDetailScreen';
+import LinkedAccountsScreen from './screens/LinkedAccountsScreen';
 
 import { initializeSecureStorage } from './services/secureStorage';
 
@@ -27,6 +28,7 @@ export type RootStackParamList = {
   Transactions: undefined;
   TransactionForm: { mode: 'create' | 'edit', transactionId?: number, wallet_id?: number };
   TransactionDetail: { transactionId: number };
+  LinkedAccounts: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -151,6 +153,13 @@ export default function App() {
           component={WalletDetailScreen}
           options={{
             title: 'Wallet Details',
+          }}
+        />
+        <Stack.Screen
+          name="LinkedAccounts"
+          component={LinkedAccountsScreen}
+          options={{
+            title: 'Linked Bank Accounts',
           }}
         />
       </Stack.Navigator>

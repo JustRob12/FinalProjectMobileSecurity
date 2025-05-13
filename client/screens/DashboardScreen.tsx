@@ -5,7 +5,6 @@ import {
   Text,
   TouchableOpacity,
   ActivityIndicator,
-  Image,
   Alert,
   Platform,
   ScrollView,
@@ -17,6 +16,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as api from '../services/api';
 import { attemptBackgroundSync } from '../services/syncService';
 import { Ionicons } from '@expo/vector-icons';
+import ConfirmationModal from '../components/ConfirmationModal';
+import UserAvatar from '../components/UserAvatar';
 
 type DashboardScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Dashboard'>;
 
@@ -39,6 +40,8 @@ export default function DashboardScreen() {
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
   const [financeSummary, setFinanceSummary] = useState<api.FinancialSummary | null>(null);
   const [wallets, setWallets] = useState<api.Wallet[]>([]);
+  const [logoutConfirmationVisible, setLogoutConfirmationVisible] = useState(false);
+  const [logoutSuccessVisible, setLogoutSuccessVisible] = useState(false);
 
   useEffect(() => {
     loadUserData();
@@ -98,16 +101,28 @@ export default function DashboardScreen() {
     }
   };
 
+  const confirmLogout = () => {
+    setLogoutConfirmationVisible(true);
+  };
+
   const handleLogout = async () => {
     try {
       setLogoutLoading(true);
+      setLogoutConfirmationVisible(false);
       await api.logout();
-      navigation.navigate('Login');
+      
+      // Show success modal before navigating
+      setLogoutSuccessVisible(true);
     } catch (error) {
       console.error('Error during logout:', error);
-    } finally {
       setLogoutLoading(false);
     }
+  };
+
+  const handleLogoutSuccessConfirm = () => {
+    setLogoutSuccessVisible(false);
+    setLogoutLoading(false);
+    navigation.navigate('Login');
   };
 
   const formatCurrency = (amount: number) => {
@@ -130,12 +145,11 @@ export default function DashboardScreen() {
     <View style={styles.container}>
       <ScrollView style={styles.content}>
         <View style={styles.profileSection}>
-          {photoURL && (
-            <Image 
-              source={{ uri: photoURL }} 
-              style={styles.profileImage} 
-            />
-          )}
+          <UserAvatar
+            photoURL={photoURL}
+            displayName={username}
+            size={80}
+          />
           <Text style={styles.title}>Welcome, {username}!</Text>
           {email && <Text style={styles.emailText}>{email}</Text>}
           {syncStatus && <Text style={styles.syncText}>{syncStatus}</Text>}
@@ -204,7 +218,7 @@ export default function DashboardScreen() {
 
         <TouchableOpacity 
           style={[styles.logoutButton, logoutLoading && styles.buttonDisabled]} 
-          onPress={handleLogout}
+          onPress={confirmLogout}
           disabled={logoutLoading}
         >
           {logoutLoading ? (
@@ -214,6 +228,27 @@ export default function DashboardScreen() {
           )}
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Logout Confirmation Modal */}
+      <ConfirmationModal
+        visible={logoutConfirmationVisible}
+        title="Confirm Logout"
+        message="Are you sure you want to log out of your account?"
+        confirmText="Yes, Logout"
+        confirmColor="#FF3B30"
+        onConfirm={handleLogout}
+        onClose={() => setLogoutConfirmationVisible(false)}
+      />
+
+      {/* Logout Success Modal */}
+      <ConfirmationModal
+        visible={logoutSuccessVisible}
+        title="Logged Out"
+        message="You have been successfully logged out."
+        confirmText="OK"
+        confirmColor="#4CAF50"
+        onConfirm={handleLogoutSuccessConfirm}
+      />
     </View>
   );
 }
@@ -241,12 +276,6 @@ const styles = StyleSheet.create({
   profileSection: {
     alignItems: 'center',
     marginBottom: 20,
-  },
-  profileImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    marginBottom: 15,
   },
   title: {
     fontSize: 28,

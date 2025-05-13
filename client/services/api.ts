@@ -171,21 +171,55 @@ export const getCurrentUser = (): Promise<User> => {
 
 // Helper to ensure photoURL is valid
 const ensureValidPhotoURL = (url: string | null): string | null => {
-  if (!url) return null;
-  
-  // Log the URL for debugging
-  console.log('Processing photoURL:', url);
-  
-  // If URL doesn't start with http or https, it might be a relative URL or invalid
-  if (!url.startsWith('http://') && !url.startsWith('https://')) {
-    console.log('URL does not start with http(s), may be invalid');
-    // For Google photos that might use a relative path
-    if (url.startsWith('/')) {
-      return `https://lh3.googleusercontent.com${url}`;
-    }
+  if (!url) {
+    console.log('Photo URL is null or empty');
     return null;
   }
   
+  // More detailed logging
+  console.log('Original photoURL:', url);
+  
+  // Special handling for Google profile pictures
+  if (url.includes('googleusercontent.com')) {
+    // For Google profile photos, we'll try a different approach
+    // Strip all parameters and use a specific size
+    if (url.includes('=s')) {
+      // Already has size parameter
+      const baseUrl = url.split('=')[0];
+      return `${baseUrl}=s400-c`;
+    } else if (url.includes('?')) {
+      // Has other parameters but no size
+      const baseUrl = url.split('?')[0];
+      return `${baseUrl}=s400-c`;
+    } else {
+      // No parameters at all
+      return `${url}=s400-c`;
+    }
+  }
+  
+  // If URL doesn't start with http or https, it might be a relative URL or invalid
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    console.log('URL does not start with http(s), trying to fix...');
+    
+    // For Google photos that might use a relative path
+    if (url.startsWith('/')) {
+      const fixedUrl = `https://lh3.googleusercontent.com${url}`;
+      console.log('Fixed Google URL:', fixedUrl);
+      return fixedUrl;
+    }
+    
+    // Try to handle Firebase storage URLs that might be missing the protocol
+    if (url.includes('firebasestorage.googleapis.com')) {
+      const fixedUrl = `https://${url}`;
+      console.log('Fixed Firebase storage URL:', fixedUrl);
+      return fixedUrl;
+    }
+    
+    console.log('Could not fix URL, returning null');
+    return null;
+  }
+  
+  console.log('URL appears valid:', url);
   return url;
 };
 

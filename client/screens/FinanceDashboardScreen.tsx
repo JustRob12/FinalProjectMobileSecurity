@@ -15,6 +15,7 @@ import { useNavigation } from '@react-navigation/native';
 import { RootStackParamList } from '../App';
 import * as api from '../services/api';
 import { Ionicons } from '@expo/vector-icons';
+import UserAvatar from '../components/UserAvatar';
 
 type FinanceDashboardScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'FinanceDashboard'>;
 
@@ -26,7 +27,6 @@ const FinanceDashboardScreen = () => {
   const [wallets, setWallets] = useState<api.Wallet[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState<'day' | 'week' | 'month' | 'year'>('month');
   const [userProfile, setUserProfile] = useState<{ displayName?: string, photoURL?: string | null }>({});
-  const [profileImageError, setProfileImageError] = useState(false);
 
   useEffect(() => {
     loadFinanceData();
@@ -83,6 +83,10 @@ const FinanceDashboardScreen = () => {
     navigation.navigate('Wallets');
   };
 
+  const handleViewLinkedAccounts = () => {
+    navigation.navigate('LinkedAccounts');
+  };
+
   const navigateToProfile = () => {
     navigation.navigate('Dashboard');
   };
@@ -92,11 +96,6 @@ const FinanceDashboardScreen = () => {
       style: 'currency',
       currency: 'PHP',
     });
-  };
-
-  const handleImageError = () => {
-    console.log('Failed to load profile image, falling back to placeholder');
-    setProfileImageError(true);
   };
 
   if (loading && !refreshing) {
@@ -126,17 +125,11 @@ const FinanceDashboardScreen = () => {
           )}
         </View>
         <TouchableOpacity onPress={navigateToProfile}>
-          {userProfile.photoURL && !profileImageError ? (
-            <Image 
-              source={{ uri: userProfile.photoURL }} 
-              style={styles.profileImage}
-              onError={handleImageError}
-            />
-          ) : (
-            <View style={styles.profilePlaceholder}>
-              <Ionicons name="person" size={24} color="#fff" />
-            </View>
-          )}
+          <UserAvatar
+            photoURL={userProfile.photoURL}
+            displayName={userProfile.displayName}
+            size={40}
+          />
         </TouchableOpacity>
       </View>
 
@@ -235,6 +228,27 @@ const FinanceDashboardScreen = () => {
             <Text style={styles.addWalletText}>Add Wallet</Text>
           </TouchableOpacity>
         </ScrollView>
+
+        {/* Linked Accounts */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Linked Bank Accounts</Text>
+          <TouchableOpacity onPress={handleViewLinkedAccounts}>
+            <Text style={styles.viewAllText}>Manage</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.linkedAccountsContainer}>
+          <TouchableOpacity style={styles.linkedAccountsCard} onPress={handleViewLinkedAccounts}>
+            <View style={styles.linkedAccountsIcon}>
+              <Ionicons name="card-outline" size={24} color="#2C8500" />
+            </View>
+            <View style={styles.linkedAccountsContent}>
+              <Text style={styles.linkedAccountsTitle}>Connect Bank Accounts</Text>
+              <Text style={styles.linkedAccountsSubtitle}>Link your accounts to automatically track transactions</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={24} color="#999" />
+          </TouchableOpacity>
+        </View>
 
         {/* Expense Breakdown */}
         {summary && summary.expensesByCategory && summary.expensesByCategory.length > 0 && (
@@ -392,21 +406,6 @@ const styles = StyleSheet.create({
   headerSubtitle: {
     fontSize: 14,
     color: '#666',
-  },
-  profileImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 2,
-    borderColor: '#007AFF',
-  },
-  profilePlaceholder: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#007AFF',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   container: {
     flex: 1,
@@ -719,6 +718,36 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 6,
     elevation: 8,
+  },
+  linkedAccountsContainer: {
+    padding: 15,
+  },
+  linkedAccountsCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  linkedAccountsIcon: {
+    marginRight: 16,
+  },
+  linkedAccountsContent: {
+    flex: 1,
+  },
+  linkedAccountsTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  linkedAccountsSubtitle: {
+    fontSize: 14,
+    color: '#666',
   },
 });
 
