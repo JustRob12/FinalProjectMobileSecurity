@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Certificate pinning for payment server -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">api.your-payment-server.com</domain>
+        <pin-set>
+            <!-- SHA-256 hash of our server certificate's public key -->
+            <!-- IMPORTANT: Replace these with your actual certificate pins -->
+            <pin digest="SHA-256">YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY=</pin>
+            <!-- Backup pin in case of certificate rotation -->
+            <pin digest="SHA-256">MTIzNDU2YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXo=</pin>
+        </pin-set>
+        <!-- Enforce TLS v1.3 for security -->
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </domain-config>
+    
+    <!-- Certificate pinning for banking integration API -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">api.banking-integration.com</domain>
+        <pin-set>
+            <!-- IMPORTANT: Replace these with your actual certificate pins -->
+            <pin digest="SHA-256">cGlubmluZ0V4YW1wbGVLZXkxMjM0NTY3ODkwMTIzNDU2</pin>
+            <pin digest="SHA-256">YmFja3VwUGlubmluZ0tleXMxMjM0NTY3ODkwMTIzNDU2</pin>
+        </pin-set>
+        <!-- Enforce TLS v1.3 for security -->
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </domain-config>
+    
+    <!-- Default configuration for all other domains -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config> 

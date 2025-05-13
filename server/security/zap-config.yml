@@ -1,0 +1,80 @@
+# ZAP Configuration for Finance App API Testing
+
+# API endpoint configuration
+env:
+  contexts:
+    - name: "Finance API"
+      urls:
+        - "https://api.your-app-domain.com"
+      includePaths:
+        - "https://api.your-app-domain.com/api.*"
+      excludePaths: []
+      authentication:
+        method: "script"
+        parameters:
+          script_name: "finance-app-auth.js"
+          script_engine: "Oracle Nashorn"
+        credentials:
+          username: "securitytester@example.com"
+          password: "Test@1234"
+      sessionManagement:
+        method: "script"
+        parameters:
+          script_name: "finance-app-session.js"
+          script_engine: "Oracle Nashorn"
+      technology:
+        exclude: []
+
+# Scanning rules
+rules:
+  - id: 40012  # Active Scanner rules (SQL Injection)
+    threshold: "Medium"
+    strength: "High"
+  - id: 40018  # SQL Injection (MySQL)
+    threshold: "Medium"
+    strength: "High"
+  - id: 90022  # Application Error Disclosure
+    threshold: "Low"
+    strength: "Default"
+  - id: 20012  # Password Autocomplete
+    threshold: "Low"
+    strength: "Default"
+  - id: 40028  # CORS
+    threshold: "Low"
+    strength: "Default"
+  - id: 40014  # Parameter Tampering
+    threshold: "Medium"
+    strength: "High"
+  - id: 10202  # Weak Authentication
+    threshold: "Medium"
+    strength: "Default"
+
+# Scan configuration
+pscan:
+  alertThreshold: "Medium"
+  maxAlertsPerRule: 10
+
+# Reporting
+report:
+  title: "Finance App Security Scan"
+  template: "modern"
+  format: "html"
+  outputPath: "./reports/security-report.html"
+  description: "Security assessment of Finance App API endpoints"
+  
+# APIs specific configuration
+apis:
+  - name: "Finance API"
+    format: "openapi"
+    file: "./api-specs/finance-api.yaml"
+    reportFileName: "finance-api-security-report.html"
+    targetUrl: "https://api.your-app-domain.com"
+    
+# Authentication parameters for API testing
+authentication:
+  type: "oauth2"
+  loginUrl: "https://api.your-app-domain.com/auth/login"
+  refreshTokenUrl: "https://api.your-app-domain.com/auth/refresh-token"
+  verificationUrl: "https://api.your-app-domain.com/auth/verify"
+  tokenHeaderName: "Authorization"
+  tokenHeaderPrefix: "Bearer " 

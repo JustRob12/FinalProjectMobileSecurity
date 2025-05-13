@@ -1,0 +1,68 @@
+version: '3'
+
+services:
+  # OWASP ZAP for DAST scanning
+  zap:
+    image: owasp/zap2docker-stable
+    container_name: finance-app-zap
+    command: zap.sh -daemon -host 0.0.0.0 -port 8080 -config api.disablekey=true -config api.addrs.addr.name=.* -config api.addrs.addr.regex=true
+    ports:
+      - '8080:8080'
+    volumes:
+      - ./security/zap-config.yml:/zap/wrk/zap-config.yml
+      - ./security/reports:/zap/wrk/reports
+    networks:
+      - security-net
+
+  # Checkmarx CLI for SAST scanning
+  checkmarx:
+    image: checkmarx/cx-cli
+    container_name: finance-app-checkmarx
+    volumes:
+      - ./:/app
+    working_dir: /app
+    command: >
+      scan -s Checkmarx -p FinanceApp -v
+        --cx-user=$CHECKMARX_USERNAME
+        --cx-password=$CHECKMARX_PASSWORD
+        --cx-url=$CHECKMARX_URL
+    environment:
+      - CHECKMARX_USERNAME=your-username
+      - CHECKMARX_PASSWORD=your-password
+      - CHECKMARX_URL=https://your-checkmarx-server
+    networks:
+      - security-net
+
+  # Run ZAP automation script
+  zap-automation:
+    image: owasp/zap2docker-stable
+    container_name: finance-app-zap-automation
+    depends_on:
+      - zap
+    volumes:
+      - ./security/zap-config.yml:/zap/wrk/zap-config.yml
+      - ./security/reports:/zap/wrk/reports
+      - ./api-specs:/zap/wrk/api-specs
+    command: >
+      zap-automation -c /zap/wrk/zap-config.yml -u http://zap:8080
+    networks:
+      - security-net
+
+  # Database security scanning (optional)
+  database-security:
+    image: owasp/dependency-check
+    container_name: finance-app-db-security
+    volumes:
+      - ./:/src
+      - ./security/reports:/report
+    command: >
+      --scan /src
+      --out /report
+      --suppression /src/security/dependency-check-suppression.xml
+      --format "ALL"
+    networks:
+      - security-net
+
+networks:
+  security-net:
+    driver: bridge 
