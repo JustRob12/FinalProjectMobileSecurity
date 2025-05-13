@@ -14,6 +14,8 @@ import { RootStackParamList } from '../App';
 import * as api from '../services/api';
 import ConfirmationModal from '../components/ConfirmationModal';
 import GoogleSignInButton from '../components/GoogleSignInButton';
+import LoginButton from '../components/LoginButton';
+import BiometricLoginButton from '../components/BiometricLoginButton';
 
 type LoginScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'Login'>;
 
@@ -85,17 +87,9 @@ export default function LoginScreen() {
           secureTextEntry
           editable={!loading}
         />
-        <TouchableOpacity 
-          style={[styles.button, loading && styles.buttonDisabled]} 
-          onPress={handleLogin}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.buttonText}>Login</Text>
-          )}
-        </TouchableOpacity>
+        <LoginButton onPress={handleLogin} loading={loading} />
+
+        <BiometricLoginButton onAuthSuccess={() => navigation.navigate('Dashboard')} />
 
         <View style={styles.dividerContainer}>
           <View style={styles.divider} />

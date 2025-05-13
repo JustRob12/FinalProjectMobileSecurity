@@ -181,20 +181,11 @@ const ensureValidPhotoURL = (url: string | null): string | null => {
   
   // Special handling for Google profile pictures
   if (url.includes('googleusercontent.com')) {
-    // For Google profile photos, we'll try a different approach
-    // Strip all parameters and use a specific size
-    if (url.includes('=s')) {
-      // Already has size parameter
-      const baseUrl = url.split('=')[0];
-      return `${baseUrl}=s400-c`;
-    } else if (url.includes('?')) {
-      // Has other parameters but no size
-      const baseUrl = url.split('?')[0];
-      return `${baseUrl}=s400-c`;
-    } else {
-      // No parameters at all
-      return `${url}=s400-c`;
-    }
+    // Google often provides temporary URLs that expire or don't work well with React Native
+    // Instead of trying to fix the URL, we'll use a placeholder image for Google avatars
+    // This is more reliable as the Google URLs can be unpredictable
+    console.log('Using placeholder for Google profile image');
+    return 'https://ui-avatars.com/api/?name=G&background=4285F4&color=fff&size=200';
   }
   
   // If URL doesn't start with http or https, it might be a relative URL or invalid
@@ -203,9 +194,9 @@ const ensureValidPhotoURL = (url: string | null): string | null => {
     
     // For Google photos that might use a relative path
     if (url.startsWith('/')) {
-      const fixedUrl = `https://lh3.googleusercontent.com${url}`;
-      console.log('Fixed Google URL:', fixedUrl);
-      return fixedUrl;
+      // Instead of trying to fix Google URLs, use a placeholder
+      console.log('Using placeholder for relative Google URL');
+      return 'https://ui-avatars.com/api/?name=G&background=4285F4&color=fff&size=200';
     }
     
     // Try to handle Firebase storage URLs that might be missing the protocol

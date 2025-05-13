@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Image, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -49,6 +49,13 @@ const UserAvatar: React.FC<UserAvatarProps> = ({
   style = {} 
 }) => {
   const [imageError, setImageError] = useState(false);
+  const [imageLoading, setImageLoading] = useState(true);
+  
+  // Reset error state if photoURL changes
+  useEffect(() => {
+    setImageError(false);
+    setImageLoading(true);
+  }, [photoURL]);
   
   // Styles for different-sized avatars
   const containerStyle = {
@@ -65,14 +72,25 @@ const UserAvatar: React.FC<UserAvatarProps> = ({
   // If there's a valid photo URL and no error loading it
   if (photoURL && !imageError) {
     return (
-      <Image
-        source={{ uri: photoURL }}
-        style={containerStyle}
-        onError={() => {
-          console.log('Avatar image failed to load:', photoURL);
-          setImageError(true);
-        }}
-      />
+      <View style={containerStyle}>
+        <Image
+          source={{ uri: photoURL }}
+          style={{width: '100%', height: '100%', borderRadius: size / 2}}
+          onLoadStart={() => setImageLoading(true)}
+          onLoad={() => setImageLoading(false)}
+          onError={(error) => {
+            console.log('Avatar image failed to load:', photoURL);
+            console.log('Error details:', error.nativeEvent);
+            setImageError(true);
+            setImageLoading(false);
+          }}
+        />
+        {imageLoading && (
+          <View style={[styles.loadingOverlay, {borderRadius: size / 2}]}>
+            <Text style={[styles.text, {fontSize: size * 0.2}]}>Loading...</Text>
+          </View>
+        )}
+      </View>
     );
   }
 
@@ -105,6 +123,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#007AFF',
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   text: {
     color: '#fff',
